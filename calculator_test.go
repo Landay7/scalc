@@ -24,9 +24,9 @@ func Test_calculate(t *testing.T) {
 	assert.Equal(t, set3, []int{2, 3})
 }
 
-func Test_calculate_invalid_exprission(t *testing.T) {
-	command1 := "[ LE 2 testdata/a.txt [ GR 1 testdata/b.txt testdata/c.txt ] "
-	set, err := calculate(strings.Fields(command1))
+func Test_calculate_mismatched_brackets(t *testing.T) {
+	command_with_no_closed_bracked := "[ LE 2 testdata/a.txt [ GR 1 testdata/b.txt testdata/c.txt ] "
+	set, err := calculate(strings.Fields(command_with_no_closed_bracked))
 	assert.NotNil(t, err)
 	assert.Nil(t, set)
 }
