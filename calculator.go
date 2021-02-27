@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/golang-collections/collections/stack"
 	"sort"
 	"errors"
 )
@@ -60,14 +59,15 @@ func сalculateLeaf(op *operator, sets []sortedSet) []int {
 }
 
 // depth is the deepest depth at the current time
-func calcDeepestSubexpression(operations *stack.Stack, depth int, operands *stack.Stack) error {
-	operation := operations.Pop()
-	if operation == nil {
+func calcDeepestSubexpression(operations *[]*operator, depth int, operands *[]numberSet) error {
+	if len(*operations) == 0 {
 		return errors.New("No operator")
 	}
+	operation := (*operations)[len(*operations) - 1]
+	*operations = (*operations)[:len(*operations) - 1]
 	var sets []sortedSet
-	for operand := operands.Peek(); operand != nil; operand = operands.Peek() {
-		nums := operand.(numberSet)
+	for len(*operands) > 0 {
+		nums := (*operands)[len(*operands) - 1]
 		if depth < nums.depth {
 			panic("not processing deepest expression")
 		}
@@ -75,10 +75,10 @@ func calcDeepestSubexpression(operations *stack.Stack, depth int, operands *stac
 			break
 		}
 		sets = append(sets, nums.values)
-		operands.Pop()
+		*operands = (*operands)[:len(*operands) - 1]
 	}
-	result := сalculateLeaf(operation.(*operator), sets)
-	operands.Push(numberSet{result, depth - 1})
+	result := сalculateLeaf(operation, sets)
+	*operands = append(*operands, numberSet{result, depth - 1})
 	return nil
 }
 
@@ -88,8 +88,8 @@ func calcDeepestSubexpression(operations *stack.Stack, depth int, operands *stac
 // Is passed as:
 //     []string{"[" "LE" "2" "a.txt" "[" "GR" "1" "b.txt" "c.txt" "]" "]"}
 func calculate(tokens []string) ([]int, error) {
-	operations := stack.New()
-	sets := stack.New()
+	var operations []*operator
+	var sets []numberSet
 	var fCache = newFileCache()
 	depth := 0
 	for i := 0; i < len(tokens); i++ {
@@ -98,7 +98,7 @@ func calculate(tokens []string) ([]int, error) {
 		case "[":
 			depth++
 		case "]":
-			if err := calcDeepestSubexpression(operations, depth, sets); err != nil{
+			if err := calcDeepestSubexpression(&operations, depth, &sets); err != nil{
 				return nil, err
 			}
 			depth--
@@ -109,19 +109,22 @@ func calculate(tokens []string) ([]int, error) {
 			if err != nil {
 				return nil, err
 			}
-			operations.Push(operator)
+			operations = append(operations, operator)
 		default:
 			setData, err := fCache.get(token)
 			if err != nil {
 				return nil, err
 			}
-			sets.Push(numberSet{setData, depth})
+			sets = append(sets, numberSet{setData, depth})
 		}
 	}
 	if depth != 0 {
 		return nil, errors.New("Expression not valid")
 	}
-	vals := sets.Pop().(numberSet).values
+	if len(sets) != 1 {
+		return nil, errors.New("Something went wrong")
+	}
+	vals := sets[0].values
 	sort.Ints(vals)
 	return vals, nil
 }
