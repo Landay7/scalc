@@ -9,16 +9,33 @@ import (
 
 func Test_calculate(t *testing.T) {
 	command1 := "[ LE 2 testdata/a.txt [ GR 1 testdata/b.txt testdata/c.txt ] ]"
-	set1 := calculate(strings.Fields(command1))
+	set1, err1 := calculate(strings.Fields(command1))
+	assert.Nil(t, err1)
 	assert.Equal(t, set1, []int{1, 4})
 
 	command2 := "[ EQ 1 [ GR 1 testdata/a.txt testdata/c.txt ] [ GR 1 testdata/b.txt testdata/c.txt ] ]"
-	set2 := calculate(strings.Fields(command2))
+	set2, err2 := calculate(strings.Fields(command2))
+	assert.Nil(t, err2)
 	assert.Equal(t, set2, []int{1, 4})
 
 	command3 := "[ GR 1 testdata/c.txt [ EQ 3 testdata/a.txt testdata/a.txt testdata/b.txt ] ]"
-	set3 := calculate(strings.Fields(command3))
+	set3, err3 := calculate(strings.Fields(command3))
+	assert.Nil(t, err3)
 	assert.Equal(t, set3, []int{2, 3})
+}
+
+func Test_calculate_invalid_exprission(t *testing.T) {
+	command1 := "[ LE 2 testdata/a.txt [ GR 1 testdata/b.txt testdata/c.txt ] "
+	set, err := calculate(strings.Fields(command1))
+	assert.NotNil(t, err)
+	assert.Nil(t, set)
+}
+
+func Test_calculate_no_file(t *testing.T) {
+	command1 := "[ LE 2 testdata/not_such_file.txt [ GR 1 testdata/b.txt testdata/c.txt ] ]"
+	set, err := calculate(strings.Fields(command1))
+	assert.NotNil(t, err)
+	assert.Nil(t, set)
 }
 
 func Test_filterByOp(t *testing.T) {
@@ -31,17 +48,17 @@ func Test_filterByOp(t *testing.T) {
 		7: 3,
 	}
 
-	operation1 := newOperator("GR", "2")
+	operation1, _ := newOperator("GR", "2")
 	result1 := filterByOp(operation1, countMap)
 	sort.Ints(result1)
 	assert.Equal(t, result1, []int{5, 7})
 
-	operation2 := newOperator("EQ", "2")
+	operation2, _ := newOperator("EQ", "2")
 	result2 := filterByOp(operation2, countMap)
 	sort.Ints(result2)
 	assert.Equal(t, result2, []int{2, 4})
 
-	operation3 := newOperator("LE", "2")
+	operation3, _ := newOperator("LE", "2")
 	result3 := filterByOp(operation3, countMap)
 	sort.Ints(result3)
 	assert.Equal(t, result3, []int{1, 3})

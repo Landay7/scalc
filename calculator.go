@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/golang-collections/collections/stack"
 	"sort"
+	"errors"
 )
 
 type sortedSet []int
@@ -59,10 +60,10 @@ func сalculateLeaf(op *operator, sets []sortedSet) []int {
 }
 
 // depth is the deepest depth at the current time
-func calcDeepestSubexpression(operations *stack.Stack, depth int, operands *stack.Stack) {
+func calcDeepestSubexpression(operations *stack.Stack, depth int, operands *stack.Stack) error {
 	operation := operations.Pop()
 	if operation == nil {
-		panic("No operator!")
+		return errors.New("No operator")
 	}
 	var sets []sortedSet
 	for operand := operands.Peek(); operand != nil; operand = operands.Peek() {
@@ -78,6 +79,7 @@ func calcDeepestSubexpression(operations *stack.Stack, depth int, operands *stac
 	}
 	result := сalculateLeaf(operation.(*operator), sets)
 	operands.Push(numberSet{result, depth - 1})
+	return nil
 }
 
 // calculate takes an expression that is split into tokens
@@ -85,7 +87,7 @@ func calcDeepestSubexpression(operations *stack.Stack, depth int, operands *stac
 //     [ LE 2 a.txt [ GR 1 b.txt c.txt ] ]
 // Is passed as:
 //     []string{"[" "LE" "2" "a.txt" "[" "GR" "1" "b.txt" "c.txt" "]" "]"}
-func calculate(tokens []string) []int {
+func calculate(tokens []string) ([]int, error) {
 	operations := stack.New()
 	sets := stack.New()
 	var fCache = newFileCache()
@@ -96,21 +98,30 @@ func calculate(tokens []string) []int {
 		case "[":
 			depth++
 		case "]":
-			calcDeepestSubexpression(operations, depth, sets)
+			if err := calcDeepestSubexpression(operations, depth, sets); err != nil{
+				return nil, err
+			}
 			depth--
 		case "GR", "EQ", "LE":
 			i++
 			n := tokens[i]
-			operations.Push(newOperator(token, n))
+			operator, err := newOperator(token, n)
+			if err != nil {
+				return nil, err
+			}
+			operations.Push(operator)
 		default:
 			setData, err := fCache.get(token)
 			if err != nil {
-				panic(err)
+				return nil, err
 			}
 			sets.Push(numberSet{setData, depth})
 		}
 	}
+	if depth != 0 {
+		return nil, errors.New("Expression not valid")
+	}
 	vals := sets.Pop().(numberSet).values
 	sort.Ints(vals)
-	return vals
+	return vals, nil
 }

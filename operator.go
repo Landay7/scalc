@@ -24,14 +24,14 @@ type operator struct {
 	n  int
 }
 
-func newOperator(opTypeStr, numStr string) *operator {
+func newOperator(opTypeStr, numStr string) (*operator, error) {
 	num, err := strconv.Atoi(numStr)
 	if err != nil {
-		panic(fmt.Sprintf("Can not parse: %s", numStr))
+		return nil, err
 	}
 	op, ok := opTypeToStr[opTypeStr]
 	if !ok {
-		panic(fmt.Sprintf("Invalid operorator type %q", opTypeStr))
+		return nil, fmt.Errorf("Invalid operorator type %q", opTypeStr)
 	}
-	return &operator{op, num}
+	return &operator{op, num}, nil
 }
