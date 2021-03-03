@@ -2,39 +2,49 @@ package main
 
 import (
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"sort"
 	"strings"
 	"testing"
 )
 
-func Test_calculate(t *testing.T) {
+func Test_calculate_1(t *testing.T) {
 	command1 := "[ LE 2 testdata/a.txt [ GR 1 testdata/b.txt testdata/c.txt ] ]"
-	set1, err1 := calculate(strings.Fields(command1))
-	assert.Nil(t, err1)
+	set1, tokens, err := calculate(strings.Fields(command1), 0)
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(tokens))
 	assert.Equal(t, set1, []int{1, 4})
+}
 
+func Test_calculate_2(t *testing.T) {
 	command2 := "[ EQ 1 [ GR 1 testdata/a.txt testdata/c.txt ] [ GR 1 testdata/b.txt testdata/c.txt ] ]"
-	set2, err2 := calculate(strings.Fields(command2))
-	assert.Nil(t, err2)
+	set2, tokens, err := calculate(strings.Fields(command2), 0)
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(tokens))
 	assert.Equal(t, set2, []int{1, 4})
+}
 
+func Test_calculate_3(t *testing.T) {
 	command3 := "[ GR 1 testdata/c.txt [ EQ 3 testdata/a.txt testdata/a.txt testdata/b.txt ] ]"
-	set3, err3 := calculate(strings.Fields(command3))
-	assert.Nil(t, err3)
+	set3, tokens, err := calculate(strings.Fields(command3), 0)
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(tokens))
 	assert.Equal(t, set3, []int{2, 3})
 }
 
 func Test_calculate_mismatched_brackets(t *testing.T) {
-	command_with_no_closed_bracked := "[ LE 2 testdata/a.txt [ GR 1 testdata/b.txt testdata/c.txt ] "
-	set, err := calculate(strings.Fields(command_with_no_closed_bracked))
+	commandWithNoClosedBracket := "[ LE 2 testdata/a.txt [ GR 1 testdata/b.txt testdata/c.txt ] "
+	set, tokens, err := calculate(strings.Fields(commandWithNoClosedBracket), 0)
 	assert.NotNil(t, err)
+	assert.Equal(t, 0, len(tokens))
 	assert.Nil(t, set)
 }
 
 func Test_calculate_no_file(t *testing.T) {
 	command1 := "[ LE 2 testdata/not_such_file.txt [ GR 1 testdata/b.txt testdata/c.txt ] ]"
-	set, err := calculate(strings.Fields(command1))
+	set, tokens, err := calculate(strings.Fields(command1), 0)
 	assert.NotNil(t, err)
+	assert.Equal(t, 0, len(tokens))
 	assert.Nil(t, set)
 }
 
@@ -70,7 +80,10 @@ func Test_makeCountMap1(t *testing.T) {
 		{3, 4, 4, 4},
 		{3, 4, 5, 6},
 	}
-	result := makeCountMap(sets)
+	var countMap map[int]int
+	for _, s := range sets {
+		countMap = addToCountMap(countMap, s)
+	}
 	expectedResult := map[int]int{
 		1: 1,
 		2: 1,
@@ -79,7 +92,7 @@ func Test_makeCountMap1(t *testing.T) {
 		5: 1,
 		6: 1,
 	}
-	assert.Equal(t, expectedResult, result)
+	assert.Equal(t, expectedResult, countMap)
 }
 
 func Test_makeCountMap2(t *testing.T) {
@@ -88,7 +101,10 @@ func Test_makeCountMap2(t *testing.T) {
 		{5, 6},
 		{7, 8},
 	}
-	result := makeCountMap(sets)
+	var countMap map[int]int
+	for _, s := range sets {
+		countMap = addToCountMap(countMap, s)
+	}
 	expectedResult := map[int]int{
 		3: 1,
 		4: 1,
@@ -97,7 +113,7 @@ func Test_makeCountMap2(t *testing.T) {
 		7: 1,
 		8: 1,
 	}
-	assert.Equal(t, expectedResult, result)
+	assert.Equal(t, expectedResult, countMap)
 }
 
 func Test_сalculateLeaf_GR(t *testing.T) {
@@ -106,8 +122,12 @@ func Test_сalculateLeaf_GR(t *testing.T) {
 		{3, 4, 4, 4},
 		{3, 4, 5, 6},
 	}
+	var countMap map[int]int
+	for _, s := range sets {
+		countMap = addToCountMap(countMap, s)
+	}
 	op := &operator{GR, 2}
-	result1 := сalculateLeaf(op, sets)
+	result1 := сalculateLeaf(op, countMap)
 	assert.Equal(t, result1, []int{3})
 }
 
@@ -118,8 +138,12 @@ func Test_сalculateLeaf_EQ(t *testing.T) {
 		{},
 		{3, 4, 5, 6},
 	}
+	var countMap map[int]int
+	for _, s := range sets {
+		countMap = addToCountMap(countMap, s)
+	}
 	op := &operator{EQ, 2}
-	result2 := сalculateLeaf(op, sets)
+	result2 := сalculateLeaf(op, countMap)
 	assert.Equal(t, result2, []int{4})
 }
 
@@ -129,8 +153,26 @@ func Test_сalculateLeaf_LE(t *testing.T) {
 		{3, 4, 4, 4},
 		{3, 4, 5, 6},
 	}
+	var countMap map[int]int
+	for _, s := range sets {
+		countMap = addToCountMap(countMap, s)
+	}
 	op := &operator{LE, 2}
-	result := сalculateLeaf(op, sets)
+	result := сalculateLeaf(op, countMap)
 	sort.Ints(result)
 	assert.Equal(t, result, []int{1, 2, 5, 6})
+}
+
+func Test_parseBrackets(t *testing.T) {
+	badTestData := [][]string {
+		{},
+		{""},
+		{"["},
+		{"]", "["},
+		{"[", "["},
+	}
+	for _, testData := range badTestData {
+		_, err := parseBrackets(testData)
+		assert.Error(t, err)
+	}
 }

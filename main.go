@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	result, err := calculate(os.Args[1:])
+	result, _, err := calculate(os.Args[1:], 0)
 	if err != nil {
 		fmt.Println(err)
 		return
